@@ -190,6 +190,13 @@ where
     T: radio::Timer,
     S: NonVolatileStore,
 {
+    /// Create a [`Device`] backed by a non-volatile store, like [`restore`](Device::restore), but let
+    /// [`Device`] use an algorithmic PRNG seeded with `seed` instead of an external RNG.
+    ///
+    /// # ⚠️Warning⚠️
+    ///
+    /// This function must **always** be called with a new randomly generated seed! **Never** call this function more
+    /// than once using the same seed. Generate the seed using a true random number generator.
     pub async fn restore_with_seed(
         region: region::Configuration,
         radio: R,
