@@ -184,6 +184,23 @@ where
     }
 }
 
+impl<R, T, const N: usize, const D: usize, S> Device<R, T, rng::Prng, N, D, S>
+where
+    R: radio::PhyRxTx + Timings,
+    T: radio::Timer,
+    S: NonVolatileStore,
+{
+    pub async fn restore_with_seed(
+        region: region::Configuration,
+        radio: R,
+        timer: T,
+        seed: u64,
+        store: S,
+    ) -> Result<Self, S::Error> {
+        Device::restore(region, radio, timer, rng::Prng::new(seed), store).await
+    }
+}
+
 impl<R, T, G, const N: usize, const D: usize> Device<R, T, G, N, D, NoNvm>
 where
     R: radio::PhyRxTx + Timings,
