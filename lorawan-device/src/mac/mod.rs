@@ -11,6 +11,7 @@ use crate::{
 use heapless::Vec;
 use lora_modulation::BaseBandModulationParams;
 use lorawan::maccommands::ChannelMask;
+#[cfg(feature = "certification")]
 use lorawan::maccommands::SerializableMacCommand;
 use lorawan::parser::DevAddr;
 use lorawan::types::DR;
@@ -278,6 +279,7 @@ impl Mac {
         (tx_config, self.rx_windows(&tx_channel))
     }
 
+    #[cfg(feature = "certification")]
     pub(crate) fn add_uplink<M: SerializableMacCommand>(&mut self, cmd: M) -> Result<()> {
         let _fcnt = match &mut self.state {
             State::Joined(session) => {
@@ -607,6 +609,7 @@ pub(crate) enum Response {
     /// Both RX windows expired without a downlink and NbTrans permits another
     /// transmission of the same frame (same FCntUp).
     Retransmit,
+    #[cfg(feature = "certification")]
     LinkCheckReq,
     #[cfg(feature = "certification")]
     UplinkPrepared,
@@ -637,6 +640,7 @@ impl From<Response> for nb_device::Response {
             Response::RxComplete => nb_device::Response::RxComplete,
             // Handled internally by the nb_device state machine.
             Response::Retransmit => unimplemented!(),
+            #[cfg(feature = "certification")]
             Response::LinkCheckReq => unimplemented!(),
             #[cfg(feature = "certification")]
             Response::UplinkPrepared => unimplemented!(),
