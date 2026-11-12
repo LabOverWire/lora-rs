@@ -86,6 +86,34 @@ impl<F: FixedChannelRegion> FixedChannelPlan<F> {
     pub fn get_max_payload_length(datarate: DR, repeater_compatible: bool, dwell_time: bool) -> u8 {
         F::get_max_payload_length(datarate, repeater_compatible, dwell_time)
     }
+
+    fn has_channel_for(&self, bandwidth: Bandwidth) -> bool {
+        let channels = match bandwidth {
+            Bandwidth::_500KHz => 64..72,
+            _ => 0..64,
+        };
+        channels.into_iter().any(|i| self.channel_mask.is_enabled(i).unwrap())
+    }
+
+    fn datarate_has_channel(&self, dr: DR) -> bool {
+        F::datarates()[dr as usize].as_ref().is_some_and(|d| self.has_channel_for(d.bandwidth))
+    }
+
+    fn usable_datarate(&mut self, requested: DR) -> DR {
+        if self.datarate_has_channel(requested) {
+            return requested;
+        }
+        match (0..F::datarates().len() as u8)
+            .map(DR::from)
+            .find(|&dr| self.datarate_has_channel(dr))
+        {
+            Some(dr) => dr,
+            None => {
+                self.enable_default_channels();
+                requested
+            }
+        }
+    }
 }
 
 pub(crate) trait FixedChannelRegion: ChannelRegion {
@@ -211,6 +239,7 @@ impl<F: FixedChannelRegion> RegionHandler for FixedChannelPlan<F> {
                 } else if let Some(channel) = self.join_channels.first_data_channel(rng) {
                     (datarate, channel)
                 } else {
+                    let datarate = self.usable_datarate(datarate);
                     // For the data frame, the datarate impacts which channel sets we can choose
                     // from. If the datarate bandwidth is 500 kHz, we must use
                     // channels 64..=71. Else, we must use 0-63

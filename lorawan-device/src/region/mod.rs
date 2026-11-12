@@ -860,4 +860,35 @@ mod tests {
         // Invalid DR should return DR::_8
         assert_eq!(r.get_rx_datarate(DR::_12, 0, &Window::_1), DR::_8);
     }
+
+    #[cfg(feature = "region-us915")]
+    fn us915_data_tx(mask: [u8; 9], requested: DR) -> Option<(u32, DR)> {
+        let (done, wait) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut config = Configuration::new(Region::US915);
+            config
+                .process_join_accept(Some(&CfList::FixedChannel(ChannelMask::new_from_raw(&mask))));
+            let mut rng = crate::Prng::new(7);
+            let (tx, channel) = config.create_tx_config(&mut rng, requested, &Frame::Data);
+            done.send((tx.rf.frequency, channel.dr)).ok();
+        });
+        wait.recv_timeout(std::time::Duration::from_secs(1)).ok()
+    }
+
+    #[test]
+    #[cfg(feature = "region-us915")]
+    fn test_us915_data_frame_without_125k_channels_falls_back_to_dr4() {
+        let only_65 = [0, 0, 0, 0, 0, 0, 0, 0, 0b0000_0010];
+        assert_eq!(us915_data_tx(only_65, DR::_0), Some((904_600_000, DR::_4)));
+        assert_eq!(us915_data_tx(only_65, DR::_4), Some((904_600_000, DR::_4)));
+    }
+
+    #[test]
+    #[cfg(feature = "region-us915")]
+    fn test_us915_data_frame_without_500k_channels_falls_back_to_dr0() {
+        let subband_2_without_65 = [0, 0xFF, 0, 0, 0, 0, 0, 0, 0];
+        let (frequency, dr) = us915_data_tx(subband_2_without_65, DR::_4).unwrap();
+        assert_eq!(dr, DR::_0);
+        assert!((903_900_000..=905_300_000).contains(&frequency), "{frequency}");
+    }
 }
