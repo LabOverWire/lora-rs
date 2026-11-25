@@ -530,7 +530,11 @@ impl Mac {
         self.configuration.tx_power = ps.tx_power;
         self.configuration.adr_enabled = ps.adr_enabled;
         let channel_mask = ChannelMask::from(ps.channel_mask);
-        if self.region.channel_mask_validate(&channel_mask, Some(self.configuration.data_rate)) {
+        let usable = (0..16u8)
+            .filter(|&dr| self.region.get_datarate(dr).is_some())
+            .map(DR::from)
+            .any(|dr| self.region.channel_mask_validate(&channel_mask, Some(dr)));
+        if usable {
             self.region.channel_mask_set(channel_mask);
         }
         self.state = State::Joined(session);

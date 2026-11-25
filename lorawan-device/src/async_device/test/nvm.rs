@@ -656,6 +656,25 @@ async fn restore_keeps_the_channel_mask() {
 }
 
 #[tokio::test]
+async fn restore_keeps_a_channel_mask_usable_only_at_another_data_rate() {
+    let channel_65_only = [0, 0, 0, 0, 0, 0, 0, 0, 0x02];
+    let store = stored_session(channel_65_only);
+    let (_radio, _timer, device) = restore(&store).await;
+    assert_eq!(device.mac.region.channel_mask_get().as_ref(), &channel_65_only);
+}
+
+#[tokio::test]
+async fn restored_channel_65_only_session_sends_on_channel_65() {
+    let store = stored_session([0, 0, 0, 0, 0, 0, 0, 0, 0x02]);
+    let (radio, timer, device) = restore(&store).await;
+    send_no_downlink(&radio, &timer, device).await;
+    let tx = *radio.get_last_uplink().await.tx_config();
+    assert_eq!(tx.rf.frequency, 904_600_000);
+    assert_eq!(tx.rf.bb.bw, lora_modulation::Bandwidth::_500KHz);
+    assert_eq!(tx.rf.bb.sf, lora_modulation::SpreadingFactor::_8);
+}
+
+#[tokio::test]
 async fn restore_ignores_a_channel_mask_without_usable_channels() {
     let store = stored_session([0; 9]);
     let (_radio, _timer, device) = restore(&store).await;
